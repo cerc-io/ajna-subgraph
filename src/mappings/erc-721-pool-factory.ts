@@ -48,9 +48,6 @@ export function handlePoolCreated(event: PoolCreatedEvent): void {
   const interestRateResults = poolContract.interestRateInfo();
   const ratesAndFees = getRatesAndFees(event.params.pool_);
 
-  // https://ethereum.stackexchange.com/questions/114582/the-graph-nodes-cant-decode-abi-encoded-data-containing-arrays
-  const dataWithoutSelector = event.transaction.input.subarray(4);
-
   // create Token entites associated with the pool
   const collateralTokenAddress = poolContract.collateralAddress();
   const collateralTokenAddressBytes = addressToBytes(collateralTokenAddress);
@@ -61,9 +58,10 @@ export function handlePoolCreated(event: PoolCreatedEvent): void {
   let tokenIds: Array<BigInt> = [];
 
   if (poolContract.isSubset()) {
-    const hexData = event.transaction.input.toHexString();
-    const hexCollateralAddress = collateralTokenAddress.toHexString();
-    const hexQuoteAddress = quoteTokenAddress.toHexString();
+    // Hex values without 0x prefix
+    const hexData = event.transaction.input.toHexString().slice(2);
+    const hexCollateralAddress = collateralTokenAddress.toHexString().slice(2);
+    const hexQuoteAddress = quoteTokenAddress.toHexString().slice(2);
 
     /**************************************************************************
      ** Looking for collateralToken + quoteToken + (62 zeroes)80 combination to assume start of PoolData
@@ -82,21 +80,21 @@ export function handlePoolCreated(event: PoolCreatedEvent): void {
 
     const tokenIdsPosition = numTokenIdsPosition + 64;
 
-    const tokenIdsLengthHex = hexData.substring(
+    const numTokenIdsHex = hexData.substring(
       numTokenIdsPosition,
       tokenIdsPosition
     );
 
-    const tokenIdsLength = I32.parseInt(tokenIdsLengthHex, 16);
+    const numTokenIds = I32.parseInt(numTokenIdsHex, 16);
 
-    if (!tokenIdsLength) {
+    if (!numTokenIds) {
       log.warning("No token IDs even though this is a Subset NFT Pool: {}", [
         poolCreated.pool.toHexString(),
       ]);
     } else {
       const tokenIdsHexString = hexData.substring(
         tokenIdsPosition,
-        tokenIdsPosition + 64 * tokenIdsLength
+        tokenIdsPosition + 64 * numTokenIds
       );
 
       log.info(
@@ -105,9 +103,10 @@ export function handlePoolCreated(event: PoolCreatedEvent): void {
       );
 
       const chunkSize = 64;
+
       for (let i = 0; i < tokenIdsHexString.length; i += chunkSize) {
         let hexChunk = tokenIdsHexString.substring(i, i + chunkSize);
-        let bigIntValue = BigInt.fromString(hexChunk);
+        let bigIntValue = BigInt.fromI32(I32.parseInt(hexChunk, 16));
         tokenIds.push(bigIntValue);
       }
     }
