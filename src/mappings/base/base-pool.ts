@@ -742,12 +742,18 @@ export function _handleBucketBankruptcy(event: ethereum.Event, index: BigInt, lp
     // iterate through all bucket lends and set lend.lpb to zero
     for (let i = 0; i < bucket.lends.length; i++) {
         const lendId = bucket.lends[i]
-        const lend = Lend.load(lendId)!
-        lend.lpb = ZERO_BD
-        updateBucketLends(bucket, lend)
-        updateAccountLends(loadOrCreateAccount(lend.lender), lend)
-        // remove lend from store
-        saveOrRemoveLend(lend)
+
+        if (lendId) {
+            const lend = Lend.load(lendId)!
+            lend.lpb = ZERO_BD
+            updateBucketLends(bucket, lend)
+            updateAccountLends(loadOrCreateAccount(lend.lender), lend)
+            // remove lend from store
+            saveOrRemoveLend(lend)
+        } else {
+            // if lendId is null for some reason just remove it from bucket
+            bucket.lends.splice(i, 1)
+        }
     }
 
     // iterate through all bucket positionLends and set positionLend.lpb to zero
